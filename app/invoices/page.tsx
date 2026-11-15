@@ -877,6 +877,26 @@ function InvoicesContent() {
     }
   };
 
+  // Helper to get effective available stock (adds back existing qty when editing an active invoice)
+  const getAvailableStockForProduct = (prodId?: string | number, prodName?: string, fallbackStock?: number) => {
+    const foundProd = products.find(
+      p => (prodId !== undefined && String(p.id) === String(prodId)) || (prodName && p.name === prodName)
+    );
+    let baseStock = Number(foundProd?.stock ?? fallbackStock ?? 0);
+
+    if (editingInvoiceId) {
+      const editingInv = invoices.find(inv => String(inv.id) === String(editingInvoiceId));
+      const invStatus = (editingInv?.status || '').toLowerCase();
+      if (editingInv && !['pending', 'draft', 'cancelled', 'rejected'].includes(invStatus)) {
+        const oldQty = (editingInv.items || [])
+          .filter(it => (prodId !== undefined && String(it.id) === String(prodId)) || (prodName && it.name === prodName))
+          .reduce((sum, it) => sum + Number(it.quantity || 0), 0);
+        baseStock += oldQty;
+      }
+    }
+    return Math.max(0, Math.round(baseStock * 100) / 100);
+  };
+
   // Cart Add Item
   const handleAddCartItem = () => {
     const itemName = selectedInvoiceProduct?.name || selectedCascadingProduct?.name || products.find(p => p.id === selectedProductId)?.name;
@@ -887,7 +907,11 @@ function InvoicesContent() {
 
     const targetProdId = selectedInvoiceProduct?.id || selectedCascadingProduct?.productId || selectedProductId;
     const foundProd = selectedInvoiceProduct || products.find(p => p.id === targetProdId || p.name === itemName);
-    const availableStock = Number(selectedInvoiceProduct?.stock ?? foundProd?.stock ?? selectedCascadingProduct?.stock ?? 0);
+    const availableStock = getAvailableStockForProduct(
+      foundProd?.id ?? targetProdId,
+      itemName,
+      selectedInvoiceProduct?.stock ?? foundProd?.stock ?? selectedCascadingProduct?.stock ?? 0
+    );
     const requestedQty = parseFloat(String(itemQty)) || 1;
     const existing = cart.find(i => i.name === itemName || (foundProd && String(i.id) === String(foundProd.id)));
     const currentInCart = existing ? Number(existing.quantity) : 0;
@@ -897,9 +921,12 @@ function InvoicesContent() {
     const itemUnitToUse = selectedInvoiceProduct?.unit || (isRing ? 'কেজি' : (selectedCascadingProduct?.unit || (foundProd as any)?.unit || itemUnit || 'পিস'));
 
     if (availableStock <= 0) {
-      toast.warning(`⚠️ সতর্কতা: '${itemName}' পণ্যটির বর্তমান স্টক ০! চালানে যুক্ত করা হয়েছে।`);
-    } else if (currentInCart + requestedQty > availableStock) {
-      toast.warning(`⚠️ স্টকে মাত্র ${availableStock} ${itemUnitToUse} রয়েছে (কার্টে মোট: ${currentInCart + requestedQty})। চালানে যুক্ত করা হয়েছে।`);
+      toast.error(`স্টকে '${itemName}' পণ্যটি নেই (বর্তমান স্টক: ০ ${itemUnitToUse})! স্টক ছাড়া বিক্রয় করা যাবে না।`);
+      return;
+    }
+    if (currentInCart + requestedQty > availableStock + 0.001) {
+      toast.error(`স্টকে মাত্র ${availableStock} ${itemUnitToUse} রয়েছে (কার্টে: ${currentInCart} ${itemUnitToUse})। স্টকের চেয়ে বেশি বিক্রয় করা যাবে না!`);
+      return;
     }
 
     const itemId = selectedInvoiceProduct?.id || selectedCascadingProduct?.productId || selectedProductId || (foundProd as any)?.id || String(Date.now());
@@ -956,9 +983,12 @@ function InvoicesContent() {
     if (newQty <= 0) return;
     const targetItem = cart.find((i, idx) => index !== undefined ? idx === index : String(i.id) === String(id));
     if (targetItem) {
-      const foundProd = products.find(p => p.id === String(targetItem.id) || p.name === targetItem.name);
-      const availableStock = Number(foundProd?.stock || 0);
-      if (availableStock > 0 && newQty > availableStock) {
+      const availableStock = getAvailableStockForProduct(targetItem.id, targetItem.name);
+      if (availableStock <= 0) {
+        toast.error(`স্টকে '${targetItem.name}' পণ্যটি নেই (স্টক: ০ ${targetItem.unit || 'পিস'})!`);
+        return;
+      }
+      if (newQty > availableStock + 0.001) {
         toast.error(`⚠️ স্টকে মাত্র ${availableStock} ${targetItem.unit || 'পিস'} রয়েছে, এর বেশি বিক্রি করা সম্ভব নয়!`);
         newQty = availableStock;
       }
@@ -1447,6 +1477,30 @@ function InvoicesContent() {
     if (!selectedCustomer && (!isNewCustomer || !newCustomerData.name.trim())) {
       toast.error('কাস্টমার নির্বাচন করুন অথবা নাম পূরণ করুন');
       return;
+    }
+
+    // Validate stock availability for all cart items before submitting
+    const cartTotalsByKey = new Map<string, { name: string; unit: string; qty: number; prodId?: string | number }>();
+    for (const item of cart) {
+      const key = item.id ? `id:${item.id}` : `name:${item.name}`;
+      const existing = cartTotalsByKey.get(key);
+      if (existing) {
+        existing.qty += Number(item.quantity || 0);
+      } else {
+        cartTotalsByKey.set(key, {
+          name: item.name,
+          unit: item.unit || 'পিস',
+          qty: Number(item.quantity || 0),
+          prodId: item.id,
+        });
+      }
+    }
+    for (const entry of cartTotalsByKey.values()) {
+      const avail = getAvailableStockForProduct(entry.prodId, entry.name);
+      if (entry.qty > avail + 0.001) {
+        toast.error(`স্টকে পর্যাপ্ত পণ্য নেই! '${entry.name}'-এর বর্তমান স্টক: ${avail} ${entry.unit}, কিন্তু বিক্রয় করতে চাচ্ছেন: ${entry.qty} ${entry.unit}।`);
+        return;
+      }
     }
 
     setIsSubmitting(true);
