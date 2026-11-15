@@ -203,6 +203,7 @@ function TransactionsContent() {
   const [isAddBankOpen, setIsAddBankOpen] = useState(false);
 
   // Add Money (টাকা যোগ) State
+  const [partners, setPartners] = useState<{ id: string; name: string; phone: string }[]>([]);
   const [addMoneyCategory, setAddMoneyCategory] = useState('ক্যাশে জমা (Add Cash)');
   const [addMoneyOwnerName, setAddMoneyOwnerName] = useState<string>('');
   const [addMoneyAmount, setAddMoneyAmount] = useState<number>(0);
@@ -310,6 +311,16 @@ function TransactionsContent() {
         accNo: b.account_number || b.accNo || '',
         balance: Number(b.balance || b.current_balance || 0)
       })));
+
+      setPartners(
+        safePartyList
+          .filter((p: any) => p.party_type === 'partner')
+          .map((p: any) => ({
+            id: String(p.id),
+            name: p.name || '',
+            phone: p.phone || ''
+          }))
+      );
 
       // Party Lookups
       const partyMapById = new Map<string, any>();
@@ -729,11 +740,19 @@ function TransactionsContent() {
 
     const isCapitalCategory = addMoneyCategory.includes('মূলধন');
     const trimmedOwner = isCapitalCategory ? addMoneyOwnerName.trim() : '';
+    if (isCapitalCategory && !trimmedOwner) {
+      toast.error('অনুগ্রহ করে পার্টনার নির্বাচন করুন');
+      return;
+    }
+    const matchedPartner = isCapitalCategory
+      ? partners.find((p) => p.name === trimmedOwner)
+      : undefined;
     const metaJson = JSON.stringify({
       isAddMoney: true,
       category: 'টাকা যোগ',
       addMoneyCategory: addMoneyCategory,
       ownerName: trimmedOwner || '',
+      partnerId: matchedPartner?.id || '',
       partyName: trimmedOwner || addMoneyCategory,
       date: addMoneyDate,
       userNote: addMoneyNote || ''
@@ -741,6 +760,7 @@ function TransactionsContent() {
 
     try {
       await api.transactions.create({
+        party: matchedPartner ? Number(matchedPartner.id) : undefined,
         party_name: trimmedOwner || addMoneyCategory,
         transaction_type: 'payment_in',
         total_amount: addMoneyAmount,
@@ -2946,7 +2966,17 @@ function TransactionsContent() {
               {/* Category / Source */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold text-slate-600">টাকা যোগের খাত / ধরন *</Label>
-                <Select value={addMoneyCategory} onValueChange={(val: string | null) => val && setAddMoneyCategory(val)}>
+                <Select
+                  value={addMoneyCategory}
+                  onValueChange={(val: string | null) => {
+                    if (val) {
+                      setAddMoneyCategory(val);
+                      if (!val.includes('মূলধন')) {
+                        setAddMoneyOwnerName('');
+                      }
+                    }
+                  }}
+                >
                   <SelectTrigger className="rounded-xl h-11 bg-slate-50/50 border-slate-200 text-xs font-bold">
                     <SelectValue />
                   </SelectTrigger>
@@ -2959,18 +2989,39 @@ function TransactionsContent() {
                 </Select>
               </div>
 
-              {/* Owner / Partner Name for Capital */}
+              {/* Owner / Partner Select for Capital Only */}
               {addMoneyCategory.includes('মূলধন') && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold text-slate-600">
-                    মালিক / অংশীদারের নাম (কার মূলধন)
+                    পার্টনার নির্বাচন করুন (কার মূলধন) *
                   </Label>
-                  <Input
-                    placeholder="যেমন: মোঃ রহিম / পার্টনার ১"
-                    value={addMoneyOwnerName}
-                    onChange={e => setAddMoneyOwnerName(e.target.value)}
-                    className="rounded-xl h-11 bg-slate-50/50 border-slate-200 text-xs font-bold"
-                  />
+                  {partners.length === 0 ? (
+                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-800 flex items-center justify-between gap-2">
+                      <span>কোনো পার্টনার যোগ করা নেই।</span>
+                      <a
+                        href="/settings"
+                        className="text-indigo-700 font-bold underline hover:text-indigo-900 shrink-0"
+                      >
+                        সেটিংস থেকে যোগ করুন ➔
+                      </a>
+                    </div>
+                  ) : (
+                    <Select
+                      value={addMoneyOwnerName}
+                      onValueChange={(val: string | null) => setAddMoneyOwnerName(val || '')}
+                    >
+                      <SelectTrigger className="rounded-xl h-11 bg-slate-50/50 border-slate-200 text-xs font-bold">
+                        <SelectValue placeholder="পার্টনার নির্বাচন করুন..." />
+                      </SelectTrigger>
+                      <SelectContent className="font-bengali text-xs font-bold">
+                        {partners.map((p) => (
+                          <SelectItem key={p.id} value={p.name}>
+                            {p.name}{p.phone ? ` (${p.phone})` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               )}
 

@@ -234,7 +234,7 @@ export default function PurchasesPage() {
   const [laborPaymentStatus, setLaborPaymentStatus] = useState<'pending' | 'paid' | 'partial' | 'overpaid'>('pending');
   const [previousShippingPaidAmount, setPreviousShippingPaidAmount] = useState<number>(0);
   const [previousLaborPaidAmount, setPreviousLaborPaidAmount] = useState<number>(0);
-  const [isLandedCostAuto, setIsLandedCostAuto] = useState<boolean>(false);
+  const [isLandedCostAuto, setIsLandedCostAuto] = useState<boolean>(true);
 
   const [paymentOption, setPaymentOption] = useState<'now' | 'later'>('now');
   const [paidAmount, setPaidAmount] = useState<number>(0);
@@ -541,7 +541,7 @@ export default function PurchasesPage() {
       }
     }
 
-    setIsLandedCostAuto(false);
+    setIsLandedCostAuto(true);
     setPaymentOption('now');
     setPaidAmount(0);
     setPaymentMethod('Cash');
@@ -910,7 +910,7 @@ export default function PurchasesPage() {
     setShippingPaymentStatus(meta.shippingStatus || (shipPaid > 0 ? 'paid' : 'pending'));
     setLaborPaymentStatus(meta.laborStatus || (labPaid > 0 ? 'paid' : 'pending'));
 
-    setIsLandedCostAuto(false);
+    setIsLandedCostAuto(meta.isLandedCostAuto !== undefined ? Boolean(meta.isLandedCostAuto) : true);
 
     setCommissionType(meta.commissionType || 'flat');
     setCommissionRate(meta.commissionRate !== undefined ? Number(meta.commissionRate) : 0);
@@ -1760,10 +1760,43 @@ export default function PurchasesPage() {
                           ) : cart.map((item, idx) => {
                             const parsed = parseProductDetails(item);
                             const lineTotal = Math.round(item.price * item.quantity * 100) / 100;
+                            const matchedProd = products.find((p) => String(p.id) === String(item.id));
+                            const prevStock = Number(matchedProd?.stock || 0);
+                            const prevCost = Number(matchedProd?.buyPrice || 0);
+                            const totalCartQty = cart.reduce((sum, c) => sum + Number(c.quantity || 0), 0);
+                            const extraPerUnit = isLandedCostAuto && totalCartQty > 0
+                              ? ((Number(shippingCost || 0) + Number(laborCost || 0)) / totalCartQty)
+                              : 0;
+                            const landedUnitPrice = Number(item.price || 0) + extraPerUnit;
+                            const qtyNum = Number(item.quantity || 0);
+                            const projectedAvgCost = (prevStock > 0 && prevCost > 0 && (prevStock + qtyNum) > 0 && landedUnitPrice > 0)
+                              ? ((prevStock * prevCost) + (qtyNum * landedUnitPrice)) / (prevStock + qtyNum)
+                              : landedUnitPrice;
                             return (
                               <TableRow key={item.id ? `${item.id}-${idx}` : `${item.name}-${idx}`} className="text-xs border-b border-slate-100">
                                 <TableCell className="text-center font-bold text-slate-400">{toBengaliDigits(idx + 1)}</TableCell>
-                                <TableCell className="font-bold text-slate-900">{item.name || parsed.categoryName}</TableCell>
+                                <TableCell className="font-bold text-slate-900">
+                                  <div>{item.name || parsed.categoryName}</div>
+                                  {projectedAvgCost > 0 && (
+                                    <div className="text-[10px] font-semibold text-indigo-600 mt-0.5 flex flex-wrap items-center gap-1">
+                                      <span>গড় ক্রয়মূল্য:</span>
+                                      {prevStock > 0 && prevCost > 0 && (
+                                        <>
+                                          <span className="text-slate-400 line-through">৳{toBengaliDigits((Math.round(prevCost * 100) / 100).toLocaleString('bn-BD'))}</span>
+                                          <span className="text-slate-400">➔</span>
+                                        </>
+                                      )}
+                                      <span className="bg-indigo-50 border border-indigo-200 px-1.5 py-0.2 rounded font-bold">
+                                        ৳{toBengaliDigits((Math.round(projectedAvgCost * 100) / 100).toLocaleString('bn-BD'))}
+                                      </span>
+                                      {extraPerUnit > 0 && (
+                                        <span className="text-[9px] text-emerald-700 font-medium">
+                                          (+৳{toBengaliDigits((Math.round(extraPerUnit * 100) / 100).toLocaleString('bn-BD'))} খরচসহ)
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </TableCell>
                                 <TableCell className="text-center font-bold text-slate-700">{item.brand || parsed.brandName || '—'}</TableCell>
                                 <TableCell className="text-center font-bold text-slate-700">
                                   {parsed.sizeName === 'OPC' ? (
@@ -2034,7 +2067,7 @@ export default function PurchasesPage() {
                       </div>
 
                       {/* Compact 1-line: Default Save Button & Auto Landed Cost Switch */}
-                      <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3 font-bengali">
+                      <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-wrap items-center justify-between gap-3 font-bengali">
                         <button
                           type="button"
                           onClick={handleSaveDefaultCharges}
@@ -2042,6 +2075,45 @@ export default function PurchasesPage() {
                           title="এই গাড়ি ভাড়া ও লেবার খরচ ভবিষ্যৎ ক্রয়ের জন্য ডিফল্ট সেভ রাখুন"
                         >
                           📌 {purchaseType === 'rod' ? 'রড ও রিং' : 'সিমেন্ট'} ডিফল্ট সেভ করুন
+                        </button>
+
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={isLandedCostAuto}
+                          onClick={() => setIsLandedCostAuto((prev) => !prev)}
+                          className={cn(
+                            "flex items-center gap-2.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer select-none shadow-2xs active:scale-95",
+                            isLandedCostAuto
+                              ? "bg-emerald-50 border-emerald-300 text-emerald-900 hover:bg-emerald-100/80"
+                              : "bg-white border-slate-300 text-slate-600 hover:bg-slate-100"
+                          )}
+                          title="চালু থাকলে গাড়ি ভাড়া ও লেবার খরচ প্রতি ইউনিট পণ্যের গড় ক্রয়মূল্যে স্বয়ংক্রিয়ভাবে যোগ হবে"
+                        >
+                          <span>অটো ল্যান্ডেড কস্ট</span>
+                          <span
+                            className={cn(
+                              "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+                              isLandedCostAuto ? "bg-emerald-600" : "bg-slate-300"
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-xs transition-transform",
+                                isLandedCostAuto ? "translate-x-4.5" : "translate-x-1"
+                              )}
+                            />
+                          </span>
+                          <span
+                            className={cn(
+                              "text-[10px] font-black px-1.5 py-0.5 rounded",
+                              isLandedCostAuto
+                                ? "bg-emerald-600 text-white"
+                                : "bg-slate-200 text-slate-600"
+                            )}
+                          >
+                            {isLandedCostAuto ? 'ON' : 'OFF'}
+                          </span>
                         </button>
                       </div>
                     </CardContent>

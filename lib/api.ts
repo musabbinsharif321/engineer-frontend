@@ -33,7 +33,7 @@ export interface CustomerSiteData {
 
 export interface PartyData {
   id?: string | number;
-  party_type: 'customer' | 'supplier' | 'engineer' | 'both';
+  party_type: 'customer' | 'supplier' | 'engineer' | 'partner' | 'both';
   name: string;
   business_name?: string;
   customer_type?: string;
@@ -344,7 +344,7 @@ export const api = {
 
   // Parties (Customers, Suppliers & Engineers)
   parties: {
-    list: async (params?: { party_type?: 'customer' | 'supplier' | 'engineer' | 'both'; search?: string }): Promise<PartyData[]> => {
+    list: async (params?: { party_type?: 'customer' | 'supplier' | 'engineer' | 'partner' | 'both'; search?: string }): Promise<PartyData[]> => {
       try {
         const query = new URLSearchParams();
         if (params?.party_type) query.append('party_type', params.party_type);

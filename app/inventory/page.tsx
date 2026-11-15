@@ -403,7 +403,6 @@ export default function InventoryPage() {
         category_name: finalCategory,
         brand: editProductForm.brand.trim() || undefined,
         unit: finalUnit,
-        purchase_price: Number(editProductForm.buyPrice) || 0,
         sell_price: Number(editProductForm.sellPrice) || 0,
         min_stock: Number(editProductForm.alertThreshold) || 5,
       });
@@ -661,7 +660,7 @@ export default function InventoryPage() {
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="font-bengali text-slate-500 text-[10px] tracking-widest font-bold py-3">পণ্য</TableHead>
                     <TableHead className="font-bengali text-slate-500 text-[10px] tracking-widest font-bold">বিভাগ</TableHead>
-                    <TableHead className="font-bengali text-slate-500 text-[10px] tracking-widest font-bold text-right">ক্রয় মূল্য</TableHead>
+                    <TableHead className="font-bengali text-slate-500 text-[10px] tracking-widest font-bold text-right">গড় ক্রয়মূল্য</TableHead>
                     <TableHead className="font-bengali text-slate-500 text-[10px] tracking-widest font-bold text-right">বিক্রয় মূল্য</TableHead>
                     <TableHead className="font-bengali text-slate-500 text-[10px] tracking-widest font-bold text-center">বর্তমান স্টক</TableHead>
                     <TableHead className="font-bengali text-slate-500 text-[10px] tracking-widest font-bold text-right">মোট মূল্য</TableHead>
@@ -1281,9 +1280,14 @@ export default function InventoryPage() {
                   <Input
                     type="number"
                     value={editProductForm.buyPrice}
-                    onChange={e => setEditProductForm(prev => ({ ...prev, buyPrice: e.target.value }))}
-                    className="font-bengali text-sm"
+                    readOnly
+                    disabled
+                    className="font-bengali text-sm bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed"
+                    title="ক্রয়মূল্য ক্রয় ইনভয়েস থেকে স্বয়ংক্রিয়ভাবে নির্ধারিত হয়"
                   />
+                  <span className="text-[10px] text-slate-400 font-medium block mt-1">
+                    গড় ক্রয়মূল্য পরিবর্তনযোগ্য নয় (ক্রয় ইনভয়েস থেকে হিসাব হয়)
+                  </span>
                 </div>
 
                 <div>
