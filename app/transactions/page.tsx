@@ -120,7 +120,7 @@ interface OrderInvoice {
 }
 
 function TransactionsContent() {
-  const { shopName } = useShopSettings();
+  const { shopName, settings } = useShopSettings();
   const { canEditInvoice, canDeleteInvoice, canCreateInvoice } = useAuth();
   const searchParams = useSearchParams();
   const partyParam = searchParams ? searchParams.get('party') : null;
@@ -1417,6 +1417,125 @@ function TransactionsContent() {
         </div>
       ) : !isAddOpen ? (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 font-bengali">
+          {/* Hidden Professional Print Statement for Transactions List */}
+          <div className="hidden">
+            <div id="printable-transactions-report" className="bg-white text-slate-900 p-6 font-bengali" style={{ width: '100%', maxWidth: '210mm', margin: '0 auto' }}>
+              {(() => {
+                let totalIncomePrint = 0;
+                let totalExpensePrint = 0;
+                let totalContraPrint = 0;
+                filteredTransactions.forEach((t) => {
+                  const isTransfer = t.category === 'ব্যালেন্স ট্রান্সফার' || t.partyName?.includes('➔') || String(t.notes || '').includes('[ব্যালেন্স ট্রান্সফার');
+                  const isAddMoney = !isTransfer && (t.type === 'contra' || t.category === 'টাকা যোগ');
+                  const isLoanIn = t.category === 'লোন গ্রহণ' || t.raw?.transaction_type === 'loan_in';
+                  const isContra = isTransfer || isAddMoney || t.type === 'contra';
+                  const isIncome = (t.type === 'income' || t.category === 'পেমেন্ট গ্রহণ' || isLoanIn) && !isContra;
+                  const isExpense = (t.type === 'expense' || t.category === 'পেমেন্ট প্রদান') && !isContra;
+                  const amt = Number(t.amount || 0);
+                  if (isIncome) totalIncomePrint += amt;
+                  else if (isExpense) totalExpensePrint += amt;
+                  else totalContraPrint += amt;
+                });
+
+                const tabLabel = activeTab === 'all' ? 'সকল লেনদেন' : activeTab === 'income' ? 'পেমেন্ট গ্রহণ (আদায়)' : activeTab === 'expense' ? 'পেমেন্ট প্রদান (খরচ)' : 'কন্ট্রা / মূলধন / ট্রান্সফার';
+                const dateRangeLabel = (startDate || endDate)
+                  ? `${startDate ? toBengaliDigits(startDate) : 'শুরু'} থেকে ${endDate ? toBengaliDigits(endDate) : 'আজ'}`
+                  : 'সকল তারিখ';
+
+                return (
+                  <div>
+                    {/* Header */}
+                    <div style={{ borderBottom: '2px solid #0f172a', paddingBottom: '10px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                      <div>
+                        <h1 style={{ fontSize: '20px', fontWeight: 900, margin: 0, color: '#0f172a' }}>{shopName}</h1>
+                        {settings?.address && <p style={{ fontSize: '11px', color: '#475569', margin: '2px 0 0 0' }}>{settings.address}</p>}
+                        {settings?.phone && <p style={{ fontSize: '11px', color: '#475569', margin: '1px 0 0 0' }}>মোবাইল: {toBengaliDigits(settings.phone)}</p>}
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>লেনদেন বিবরণী (Transaction Statement)</div>
+                        <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px' }}>ধরন: <strong>{tabLabel}</strong> | সময়কাল: <strong>{dateRangeLabel}</strong></div>
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px' }}>প্রিন্ট তারিখ: {new Date().toLocaleDateString('bn-BD')}</div>
+                      </div>
+                    </div>
+
+                    {/* Compact Summary Strip */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '12px' }}>
+                      <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '6px 10px', backgroundColor: '#f8fafc' }}>
+                        <div style={{ fontSize: '10px', color: '#475569', fontWeight: 700 }}>মোট আদায় (+)</div>
+                        <div style={{ fontSize: '14px', fontWeight: 900, color: '#047857' }}>৳ {toBengaliDigits(totalIncomePrint.toLocaleString('bn-BD'))}</div>
+                      </div>
+                      <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '6px 10px', backgroundColor: '#f8fafc' }}>
+                        <div style={{ fontSize: '10px', color: '#475569', fontWeight: 700 }}>মোট প্রদান (-)</div>
+                        <div style={{ fontSize: '14px', fontWeight: 900, color: '#c2410c' }}>৳ {toBengaliDigits(totalExpensePrint.toLocaleString('bn-BD'))}</div>
+                      </div>
+                      <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '6px 10px', backgroundColor: '#f8fafc' }}>
+                        <div style={{ fontSize: '10px', color: '#475569', fontWeight: 700 }}>কন্ট্রা / মূলধন</div>
+                        <div style={{ fontSize: '14px', fontWeight: 900, color: '#1d4ed8' }}>৳ {toBengaliDigits(totalContraPrint.toLocaleString('bn-BD'))}</div>
+                      </div>
+                      <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '6px 10px', backgroundColor: '#f8fafc' }}>
+                        <div style={{ fontSize: '10px', color: '#475569', fontWeight: 700 }}>মোট লেনদেন</div>
+                        <div style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a' }}>{toBengaliDigits(filteredTransactions.length)} টি</div>
+                      </div>
+                    </div>
+
+                    {/* Clean Ledger Table */}
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f1f5f9', borderTop: '1.5px solid #0f172a', borderBottom: '1.5px solid #0f172a' }}>
+                          <th style={{ padding: '6px 6px', textAlign: 'center', fontWeight: 800, borderRight: '1px solid #cbd5e1', width: '32px' }}>ক্রম</th>
+                          <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: 800, borderRight: '1px solid #cbd5e1' }}>আইডি</th>
+                          <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: 800, borderRight: '1px solid #cbd5e1' }}>তারিখ</th>
+                          <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: 800, borderRight: '1px solid #cbd5e1' }}>প্রকার</th>
+                          <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: 800, borderRight: '1px solid #cbd5e1' }}>পার্টি / বিবরণ</th>
+                          <th style={{ padding: '6px 6px', textAlign: 'center', fontWeight: 800, borderRight: '1px solid #cbd5e1' }}>মাধ্যম</th>
+                          <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: 800, borderRight: '1px solid #cbd5e1' }}>নোট / রেফারেন্স</th>
+                          <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: 800 }}>পরিমাণ (৳)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredTransactions.map((t, idx) => {
+                          const method = t.paymentMethod || (t.accountType === 'bank' ? 'Bank' : 'Cash');
+                          const methodBn = method === 'Cash' ? 'নগদ' : method === 'Bank' ? 'ব্যাংক' : method === 'Check' ? 'চেক' : method;
+                          const isTransfer = t.category === 'ব্যালেন্স ট্রান্সফার' || t.partyName?.includes('➔') || String(t.notes || '').includes('[ব্যালেন্স ট্রান্সফার');
+                          const isAddMoney = !isTransfer && (t.type === 'contra' || t.category === 'টাকা যোগ');
+                          const isLoanIn = t.category === 'লোন গ্রহণ' || t.raw?.transaction_type === 'loan_in';
+                          const isContra = isTransfer || isAddMoney || t.type === 'contra';
+                          const isIncome = (t.type === 'income' || t.category === 'পেমেন্ট গ্রহণ' || isLoanIn) && !isContra;
+                          const isExpense = (t.type === 'expense' || t.category === 'পেমেন্ট প্রদান') && !isContra;
+                          const typeLabel = isTransfer ? 'ব্যালেন্স ট্রান্সফার' : isAddMoney ? 'টাকা যোগ' : isLoanIn ? 'লোন গ্রহণ' : (t.category || (isIncome ? 'পেমেন্ট গ্রহণ' : 'পেমেন্ট প্রদান'));
+                          const sign = isExpense ? '-' : '+';
+
+                          return (
+                            <tr key={t.id} style={{ borderBottom: '1px solid #e2e8f0', breakInside: 'avoid' }}>
+                              <td style={{ padding: '5px 6px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>{toBengaliDigits(idx + 1)}</td>
+                              <td style={{ padding: '5px 6px', fontFamily: 'monospace', fontWeight: 700, borderRight: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{toBengaliDigits(t.paymentId || `TX-${t.id}`)}</td>
+                              <td style={{ padding: '5px 6px', borderRight: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{formatDate(t.createdAt)}</td>
+                              <td style={{ padding: '5px 6px', borderRight: '1px solid #e2e8f0', fontWeight: 700 }}>{typeLabel}</td>
+                              <td style={{ padding: '5px 6px', borderRight: '1px solid #e2e8f0', fontWeight: 700 }}>
+                                {t.partyName || 'সাধারণ পার্টি'}
+                                {t.siteName ? ` (${t.siteName})` : ''}
+                              </td>
+                              <td style={{ padding: '5px 6px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>{methodBn}</td>
+                              <td style={{ padding: '5px 6px', borderRight: '1px solid #e2e8f0', color: '#475569' }}>{toBengaliDigits(t.referenceNo || t.description || '—')}</td>
+                              <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 800, whiteSpace: 'nowrap', color: isExpense ? '#c2410c' : isIncome ? '#047857' : '#1d4ed8' }}>
+                                {sign} ৳ {toBengaliDigits((t.amount || 0).toLocaleString('bn-BD'))}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+
+                    {/* Signature Footer */}
+                    <div style={{ marginTop: '36px', display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#334155', breakInside: 'avoid' }}>
+                      <div style={{ borderTop: '1px solid #64748b', paddingTop: '4px', minWidth: '140px', textAlign: 'center' }}>প্রস্তুতকারীর স্বাক্ষর</div>
+                      <div style={{ borderTop: '1px solid #64748b', paddingTop: '4px', minWidth: '140px', textAlign: 'center' }}>অনুমোদনকারীর স্বাক্ষর</div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
           
           {/* TOP BREADCRUMB & PAGE TITLE HEADER */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1489,7 +1608,7 @@ function TransactionsContent() {
                 <FileSpreadsheet className="w-4 h-4 mr-1.5 text-emerald-600" /> এক্সেল এক্সপোর্ট
               </Button>
 
-              <Button variant="outline" onClick={() => window.print()} className="h-11 px-4 rounded-xl border-slate-200 text-slate-700 bg-white font-bold text-xs">
+              <Button variant="outline" onClick={() => printElement('printable-transactions-report')} className="h-11 px-4 rounded-xl border-slate-200 text-slate-700 bg-white font-bold text-xs cursor-pointer">
                 <Printer className="w-4 h-4 mr-1.5 text-blue-600" /> প্রিন্ট
               </Button>
             </div>
