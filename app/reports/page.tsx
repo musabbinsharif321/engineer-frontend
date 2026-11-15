@@ -123,6 +123,7 @@ interface ReportExpense {
   amount: number;
   date: string;
   paymentMethod?: string;
+  isIncludedInLandedCost?: boolean;
 }
 
 interface ReportCapitalEntry {
@@ -356,15 +357,45 @@ function MasterReportsContent() {
         }));
       setPurchases(purchaseTx);
 
-      // 4. Map Expenses
-      const mappedExp: ReportExpense[] = safeExp.map((e: any) => ({
-        id: String(e.id),
-        title: e.title,
-        category: e.category_name || 'পরিচালন ব্যয়',
-        amount: Number(e.amount || 0),
-        date: e.date || format(new Date(), 'yyyy-MM-dd'),
-        paymentMethod: e.payment_method || 'cash'
-      }));
+      // 4. Map Expenses (tag purchase shipping/labor already included in product landed cost / COGS)
+      const landedPurchaseInvoiceNos = new Set<string>();
+      safeTx.forEach((t: any) => {
+        if (
+          t.transaction_type === 'purchase' &&
+          !['pending', 'draft', 'cancelled', 'rejected'].includes((t.status || '').toLowerCase()) &&
+          !(t.notes || '').includes('isHistoricalLedger')
+        ) {
+          let isLandedAuto = true;
+          if (t.notes && typeof t.notes === 'string' && t.notes.trim().startsWith('{')) {
+            try {
+              const meta = JSON.parse(t.notes.split('\n')[0]);
+              const flag = meta.isLandedCostAuto;
+              if (flag === false || flag === 'false' || flag === 0) {
+                isLandedAuto = false;
+              }
+            } catch {}
+          }
+          if (isLandedAuto && t.invoice_no) {
+            landedPurchaseInvoiceNos.add(String(t.invoice_no).trim().toUpperCase());
+          }
+        }
+      });
+
+      const mappedExp: ReportExpense[] = safeExp.map((e: any) => {
+        const titleStr = String(e.title || '');
+        const invMatch = titleStr.match(/#(INV-[A-Za-z0-9-]+)/i);
+        const matchedInv = invMatch ? invMatch[1].trim().toUpperCase() : '';
+        const isIncludedInLandedCost = Boolean(matchedInv && landedPurchaseInvoiceNos.has(matchedInv));
+        return {
+          id: String(e.id),
+          title: e.title,
+          category: e.category_name || 'পরিচালন ব্যয়',
+          amount: Number(e.amount || 0),
+          date: e.date || format(new Date(), 'yyyy-MM-dd'),
+          paymentMethod: e.payment_method || 'cash',
+          isIncludedInLandedCost
+        };
+      });
       setExpenses(mappedExp);
 
       // 5. Map Customers & Suppliers
@@ -632,13 +663,41 @@ function MasterReportsContent() {
     })).sort((a, b) => b.total - a.total);
   }, [filteredExpenses]);
 
+  // EXPENSE SUMMARY BY CATEGORY FOR P&L (excludes purchase shipping/labor already in COGS)
+  const pnlExpenseByCategory = useMemo(() => {
+    const map = new Map<string, { count: number; total: number }>();
+    filteredExpenses
+      .filter(e => !e.isIncludedInLandedCost)
+      .forEach(e => {
+        const cat = e.category || 'সাধারণ';
+        const existing = map.get(cat) || { count: 0, total: 0 };
+        map.set(cat, { count: existing.count + 1, total: existing.total + e.amount });
+      });
+    return Array.from(map.entries()).map(([category, data]) => ({
+      category,
+      count: data.count,
+      total: Math.round(data.total)
+    })).sort((a, b) => b.total - a.total);
+  }, [filteredExpenses]);
+
   // PROFIT & LOSS / INCOME STATEMENT METRICS
   const pnlMetrics = useMemo(() => {
     const grossRevenue = salesMetrics.totalSales;
     const cogs = salesMetrics.totalCost;
     const grossProfit = Math.round(grossRevenue - cogs);
     const grossMargin = grossRevenue > 0 ? Math.round((grossProfit / grossRevenue) * 1000) / 10 : 0;
-    const operatingExpenses = purchaseExpenseMetrics.totalExpenses;
+
+    let excludedLandedCostExpenses = 0;
+    let operatingExpensesRaw = 0;
+    filteredExpenses.forEach(e => {
+      if (e.isIncludedInLandedCost) {
+        excludedLandedCostExpenses += e.amount;
+      } else {
+        operatingExpensesRaw += e.amount;
+      }
+    });
+
+    const operatingExpenses = Math.round(operatingExpensesRaw);
     const netProfit = Math.round(grossProfit - operatingExpenses);
     const netMargin = grossRevenue > 0 ? Math.round((netProfit / grossRevenue) * 1000) / 10 : 0;
 
@@ -648,10 +707,11 @@ function MasterReportsContent() {
       grossProfit,
       grossMargin,
       operatingExpenses,
+      excludedLandedCostExpenses: Math.round(excludedLandedCostExpenses),
       netProfit,
       netMargin
     };
-  }, [salesMetrics, purchaseExpenseMetrics]);
+  }, [salesMetrics, filteredExpenses]);
 
   // CAPITAL / MULDHON METRICS (FROM টাকা যোগ)
   const capitalMetrics = useMemo(() => {
@@ -1801,15 +1861,20 @@ function MasterReportsContent() {
                       <span>৪. পরিচালন ব্যয়সমূহ (Operating Expenses)</span>
                       <span>পরিমাণ (৳)</span>
                     </div>
-                    {expenseByCategory.length === 0 ? (
+                    {pnlExpenseByCategory.length === 0 ? (
                       <div className="pl-4 text-xs text-slate-400 font-medium">কোনো পরিচালন খরচ পাওয়া যায়নি</div>
                     ) : (
-                      expenseByCategory.map((c, i) => (
+                      pnlExpenseByCategory.map((c, i) => (
                         <div key={i} className="pl-4 pr-3 flex justify-between items-center text-xs text-slate-700">
                           <span>{c.category}</span>
                           <span className="font-mono font-medium text-slate-800">৳ {formatBnNum(c.total)}</span>
                         </div>
                       ))
+                    )}
+                    {pnlMetrics.excludedLandedCostExpenses > 0 && (
+                      <div className="pl-4 pr-3 text-[11px] text-slate-500 font-medium">
+                        * ক্রয় পরিবহন ও লেবার বাবদ ৳ {formatBnNum(pnlMetrics.excludedLandedCostExpenses)} ইতিমধ্যে পণ্যের গড় ক্রয়মূল্যে (COGS) যুক্ত থাকায় এখানে পুনরায় বাদ দেওয়া হয়নি।
+                      </div>
                     )}
                     <div className="pl-4 pr-3 flex justify-between items-center text-xs font-black text-rose-700 pt-1.5 border-t border-slate-100">
                       <span>মোট পরিচালন ব্যয় (Total Operating Expenses)</span>
