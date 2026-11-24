@@ -104,6 +104,7 @@ interface Invoice {
   totalAmount: number;
   paidAmount: number;
   dueAmount: number;
+  advanceAdjusted?: number;
   profit?: number;
   costAmount?: number;
   paymentStatus: string;
@@ -537,9 +538,10 @@ function InvoicesContent() {
           totalAmount: Number(s.total_amount || 0),
           paidAmount: Number(s.paid_amount || 0),
           dueAmount: Number(s.due_amount || 0),
+          advanceAdjusted: Number(meta.advanceAdjusted || meta.advanceAdjustedAmount || 0),
           profit: Number(s.profit || 0),
           costAmount: Number(s.cost_amount || 0),
-          paymentStatus: s.due_amount <= 0 ? 'পরিশোধিত' : (s.paid_amount || 0) > 0 ? 'আংশিক' : 'বাকি',
+          paymentStatus: s.due_amount <= 0 ? 'পরিশোধিত' : ((s.paid_amount || 0) + Number(meta.advanceAdjusted || meta.advanceAdjustedAmount || 0)) > 0 ? 'আংশিক' : 'বাকি',
           stage: s.status === 'pending' || s.status === 'draft' ? 'pending' : 'approved',
           status: s.status || 'pending',
           createdAt: s.created_at,
@@ -1174,17 +1176,27 @@ function InvoicesContent() {
       ? ((cashPaidAmount || 0) + (chequePaidAmount || 0))
       : (invoicePaidAmount || 0)));
 
-  const cartDueAmount = round2(paymentOption === 'now' ? Math.max(0, cartTotalAmount - totalReceivedPayment) : cartTotalAmount);
-
   // Selected Customer Existing Due & Advance Calculation
   const selectedCustomerDue = selectedCustomer 
     ? Number(selectedCustomer.totalDue !== undefined ? selectedCustomer.totalDue : (selectedCustomer.due || 0))
     : 0;
-  const selectedCustomerAdvance = selectedCustomer 
+  const rawCustomerAdvance = selectedCustomer 
     ? Number(selectedCustomer.advanceBalance || 0)
     : 0;
+  const selectedCustomerAdvance = editingInvoiceId
+    ? rawCustomerAdvance + Number(editingInvoiceMeta?.advanceAdjusted || editingInvoiceMeta?.advanceAdjustedAmount || 0)
+    : rawCustomerAdvance;
+  const advanceAdjustedAmount = selectedCustomerAdvance > 0
+    ? round2(Math.min(cartTotalAmount, selectedCustomerAdvance))
+    : 0;
+  const remainingAfterAdvance = round2(Math.max(0, cartTotalAmount - advanceAdjustedAmount));
+  const cartDueAmount = round2(
+    paymentOption === 'now'
+      ? Math.max(0, remainingAfterAdvance - totalReceivedPayment)
+      : remainingAfterAdvance
+  );
   const netPayableWithPrevious = selectedCustomerAdvance > 0
-    ? Math.max(0, cartTotalAmount - selectedCustomerAdvance)
+    ? remainingAfterAdvance
     : (cartTotalAmount + selectedCustomerDue);
 
   const resetCreateForm = () => {
@@ -1642,6 +1654,7 @@ function InvoicesContent() {
         cashPaidAmount: finalPaidAmount > 0 ? (isSplitPayment ? Number(cashPaidAmount || 0) : (invoicePaymentMethod === 'Cash' ? Number(finalPaidAmount || 0) : 0)) : 0,
         chequePaidAmount: finalPaidAmount > 0 ? (isSplitPayment ? Number(chequePaidAmount || 0) : (invoicePaymentMethod === 'Cheque' ? Number(finalPaidAmount || 0) : 0)) : 0,
         previousBalance: selectedCustomer ? Number((selectedCustomer as any).totalDue || (selectedCustomer as any).due || (selectedCustomer as any).balance || (selectedCustomer as any).previousDue || (selectedCustomer as any).openingBalance || 0) : 0,
+        advanceAdjusted: advanceAdjustedAmount,
         engineerId: selectedEngineer ? String(selectedEngineer.id) : '',
         engineerName: selectedEngineer ? selectedEngineer.name : '',
         engineerPhone: selectedEngineer ? (selectedEngineer.phone || '') : '',
@@ -1776,7 +1789,7 @@ function InvoicesContent() {
   const handleAddPayment = async () => {
     if (!selectedInvoice || addPayment <= 0) return;
     const newPaid = (selectedInvoice.paidAmount || 0) + addPayment;
-    const newDue = Math.max(0, selectedInvoice.totalAmount - newPaid);
+    const newDue = Math.max(0, selectedInvoice.totalAmount - (selectedInvoice.advanceAdjusted || 0) - newPaid);
     try {
       await api.transactions.update(selectedInvoice.id, {
         paid_amount: newPaid,
@@ -1883,8 +1896,8 @@ function InvoicesContent() {
     // 4. Payment Status
     if (filterPaymentStatus !== 'all') {
       const isPaid = item.dueAmount <= 0 || item.paymentStatus === 'paid' || item.paymentStatus === 'পরিশোধিত';
-      const isPartial = (item.paidAmount || 0) > 0 && item.dueAmount > 0;
-      const isUnpaid = (item.paidAmount || 0) === 0 && item.dueAmount > 0;
+      const isPartial = ((item.paidAmount || 0) + (item.advanceAdjusted || 0)) > 0 && item.dueAmount > 0;
+      const isUnpaid = (item.paidAmount || 0) === 0 && (item.advanceAdjusted || 0) === 0 && item.dueAmount > 0;
 
       if (filterPaymentStatus === 'paid' && !isPaid) return false;
       if (filterPaymentStatus === 'partial' && !isPartial) return false;
@@ -1920,8 +1933,8 @@ function InvoicesContent() {
       if (quickFilter === 'this_month' && itemDate && !isSameMonth(itemDate, new Date())) return false;
 
       const isPaid = item.dueAmount <= 0 || item.paymentStatus === 'paid' || item.paymentStatus === 'পরিশোধিত';
-      const isPartial = (item.paidAmount || 0) > 0 && item.dueAmount > 0;
-      const isUnpaid = (item.paidAmount || 0) === 0 && item.dueAmount > 0;
+      const isPartial = ((item.paidAmount || 0) + (item.advanceAdjusted || 0)) > 0 && item.dueAmount > 0;
+      const isUnpaid = (item.paidAmount || 0) === 0 && (item.advanceAdjusted || 0) === 0 && item.dueAmount > 0;
 
       if (quickFilter === 'unpaid' && !isUnpaid) return false;
       if (quickFilter === 'partial' && !isPartial) return false;
@@ -2306,8 +2319,8 @@ function InvoicesContent() {
                   </TableRow>
                 ) : paginatedInvoices.map(inv => {
                   const isPaid = inv.dueAmount <= 0 || inv.paymentStatus === 'paid' || inv.paymentStatus === 'পরিশোধিত';
-                  const isPartial = (inv.paidAmount || 0) > 0 && inv.dueAmount > 0;
-                  const isUnpaid = (inv.paidAmount || 0) === 0 && inv.dueAmount > 0;
+                  const isPartial = ((inv.paidAmount || 0) + (inv.advanceAdjusted || 0)) > 0 && inv.dueAmount > 0;
+                  const isUnpaid = (inv.paidAmount || 0) === 0 && (inv.advanceAdjusted || 0) === 0 && inv.dueAmount > 0;
 
                   return (
                     <TableRow
@@ -2360,7 +2373,12 @@ function InvoicesContent() {
                         )}
                       </TableCell>
                       <TableCell className="text-right font-bengali font-bold text-emerald-600 text-sm py-4 px-4">
-                        ৳{toBengaliDigits((inv.paidAmount || 0).toLocaleString('en-IN'))}
+                        <span>৳{toBengaliDigits((inv.paidAmount || 0).toLocaleString('en-IN'))}</span>
+                        {(inv.advanceAdjusted || 0) > 0 && (
+                          <span className="block text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 rounded px-1.5 py-0.5 mt-0.5 whitespace-nowrap">
+                            অগ্রিম সমন্বয়: ৳{toBengaliDigits((inv.advanceAdjusted || 0).toLocaleString('en-IN'))}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right font-bengali font-bold text-rose-600 text-sm py-4 px-4">
                         ৳{toBengaliDigits((inv.dueAmount || 0).toLocaleString('en-IN'))}

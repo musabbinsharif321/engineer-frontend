@@ -192,7 +192,8 @@ export const SalesInvoiceDetailsView: React.FC<SalesInvoiceDetailsViewProps> = (
     : (cementBags > 0 && rodRingWeight === 0 ? (shippingCost + (cementUnloadingToCustomer ? cementUnloadingCost : 0)) / cementBags : 0);
 
   const paidAmount = Number(invoice.paidAmount || 0);
-  const dueAmount = Number(invoice.dueAmount !== undefined ? invoice.dueAmount : Math.max(0, totalAmount - paidAmount));
+  const advanceAdjusted = Number(invoice.advanceAdjusted || meta.advanceAdjusted || meta.advanceAdjustedAmount || 0);
+  const dueAmount = Number(invoice.dueAmount !== undefined ? invoice.dueAmount : Math.max(0, totalAmount - advanceAdjusted - paidAmount));
   const previousBalance = Number(
     invoice.previousBalance !== undefined ? invoice.previousBalance :
     invoice.previous_balance !== undefined ? invoice.previous_balance :
@@ -205,7 +206,7 @@ export const SalesInvoiceDetailsView: React.FC<SalesInvoiceDetailsViewProps> = (
     meta.previousDue !== undefined ? meta.previousDue :
     0
   );
-  const grandTotalPayable = totalAmount + previousBalance;
+  const grandTotalPayable = Math.max(0, totalAmount + previousBalance - advanceAdjusted);
   const finalGrandDue = Math.max(0, grandTotalPayable - paidAmount);
 
   // Logistics & Transport Fields
@@ -248,7 +249,7 @@ export const SalesInvoiceDetailsView: React.FC<SalesInvoiceDetailsViewProps> = (
   const chequePaid = Number(invoice.chequePaidAmount || meta.chequePaidAmount || 0);
 
   const isPaid = dueAmount <= 0;
-  const isPartial = paidAmount > 0 && dueAmount > 0;
+  const isPartial = (paidAmount + advanceAdjusted) > 0 && dueAmount > 0;
 
   // Aggregate quantity by unit
   const aggregatedUnits = items.reduce((acc: Record<string, number>, item: any) => {
@@ -845,13 +846,20 @@ export const SalesInvoiceDetailsView: React.FC<SalesInvoiceDetailsViewProps> = (
               <span className="font-mono font-black text-slate-900 text-base">৳ {toBengaliDigits(totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 }))}</span>
             </div>
 
-            <div className="flex justify-between items-center pt-1 border-t border-slate-100 text-rose-700 font-bold">
-              <span className="text-slate-600">পূর্বের জের / বকেয়া</span>
-              <span className="font-mono font-bold text-slate-900">+ ৳ {toBengaliDigits(previousBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 }))}</span>
-            </div>
+            {advanceAdjusted > 0 ? (
+              <div className="flex justify-between items-center pt-1 border-t border-slate-100 text-emerald-700 font-bold">
+                <span className="text-emerald-700">পূর্বের অগ্রিম সমন্বয়</span>
+                <span className="font-mono font-bold text-emerald-700">- ৳ {toBengaliDigits(advanceAdjusted.toLocaleString('en-IN', { minimumFractionDigits: 2 }))}</span>
+              </div>
+            ) : (
+              <div className="flex justify-between items-center pt-1 border-t border-slate-100 text-rose-700 font-bold">
+                <span className="text-slate-600">পূর্বের জের / বকেয়া</span>
+                <span className="font-mono font-bold text-slate-900">+ ৳ {toBengaliDigits(previousBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 }))}</span>
+              </div>
+            )}
 
             <div className="flex justify-between items-center p-2 rounded-lg bg-orange-50 border border-orange-200 font-black text-xs text-orange-950">
-              <span>সর্বমোট প্রদেয় বিল (বকেয়াসহ)</span>
+              <span>{advanceAdjusted > 0 ? 'সমন্বয় পরবর্তী প্রদেয় বিল' : 'সর্বমোট প্রদেয় বিল (বকেয়াসহ)'}</span>
               <span className="font-mono text-sm">৳ {toBengaliDigits(grandTotalPayable.toLocaleString('en-IN', { minimumFractionDigits: 2 }))}</span>
             </div>
 
