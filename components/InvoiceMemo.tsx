@@ -112,12 +112,12 @@ export const InvoiceMemo: React.FC<InvoiceMemoProps> = ({
 
   const [shop] = useState(() => {
     const defaultShop = {
-      name: 'ব্রাদার্স এন্টারপ্রাইজ',
-      proprietor: 'প্রোঃ- মোঃ মিকাইল শেখ',
+      name: '',
+      proprietor: '',
       tagline: 'পাইকারী ও খুচরা বিক্রয় কেন্দ্র',
-      address: '৩১০, চৌধুরী নিউ সুপার মার্কেট, বঙ্গবন্ধু সড়ক, গোপালগঞ্জ',
-      phone: '০১৭১২-০১৪২২৫, ০১৭০১-২৯৫৩৩০',
-      email: 'delowarteraders@gmail.com',
+      address: '',
+      phone: '',
+      email: '',
       website: '',
       terms: 'বিঃ দ্রঃ— ১. বিক্রিত মালামাল সাইটে হস্তান্তরের পর ফেরত বা বদল করা হয় না। ২. সাইটে মালামাল গণন পূর্বক বুঝে নেওয়ার অনুরোধ করা যাচ্ছে।',
       software: 'Hasanah Tech Solution',
@@ -194,7 +194,12 @@ export const InvoiceMemo: React.FC<InvoiceMemoProps> = ({
   const effectiveSiteName = invoice.siteName || (invoice as any).site_name || meta.siteName || meta.site_name || '';
   const effectiveSiteContact = invoice.siteContact || (invoice as any).site_contact || (invoice as any).contactPerson || meta.siteContact || meta.contactPerson || '';
   const effectiveDeliveryAddress = invoice.siteAddress || invoice.deliveryAddress || meta.deliveryAddress || meta.siteAddress || '';
-  const effectiveDeliveryFrom = invoice.deliveryFrom || meta.deliveryFrom || shop.name || '';
+  const displayAddress = propShopInfo?.address || globalSettings.address || shop.address || '';
+  const displayPhone = propShopInfo?.phone || globalSettings.phone || shop.phone || '';
+  const displayEmail = propShopInfo?.email || globalSettings.email || shop.email || '';
+  const displayWebsite = propShopInfo?.website || shop.website || '';
+
+  const effectiveDeliveryFrom = invoice.deliveryFrom || meta.deliveryFrom || propShopInfo?.name || shopName || '';
   const effectiveDeliveryTo = invoice.deliveryTo || meta.deliveryTo || invoice.customerName || '';
   const effectivePreparedBy = invoice.preparedBy || invoice.operatorName || meta.preparedBy || meta.operatorName || '';
   const effectiveAuthorizedBy = invoice.authorizedBy || meta.authorizedBy || '';
@@ -338,24 +343,24 @@ export const InvoiceMemo: React.FC<InvoiceMemoProps> = ({
                   {shop.tagline}
                 </p>
               )}
-              {shop.address && (
+              {displayAddress && (
                 <p className="pt-0.5 text-[11px] leading-tight">
-                  📍 {shop.address}
+                  📍 {displayAddress}
                 </p>
               )}
-              {shop.phone && (
+              {displayPhone && (
                 <p className="text-[11px]">
-                  📞 {shop.phone}
+                  📞 {displayPhone}
                 </p>
               )}
-              {shop.email && (
+              {displayEmail && (
                 <p className="text-[11px] text-slate-600 font-mono">
-                  ✉️ {shop.email}
+                  ✉️ {displayEmail}
                 </p>
               )}
-              {shop.website && (
+              {displayWebsite && (
                 <p className="text-[11px] text-slate-600 font-mono">
-                  🌐 {shop.website}
+                  🌐 {displayWebsite}
                 </p>
               )}
             </div>

@@ -1697,7 +1697,7 @@ export default function InventoryPage() {
           }}
         >
           <thead>
-            {/* Header Row 1: মেসার্স দেলোয়ার এন্ড ব্রাদার্স */}
+            {/* Header Row 1: দোকানের নাম */}
             <tr>
               <th 
                 colSpan={4} 

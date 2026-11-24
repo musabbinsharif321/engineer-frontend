@@ -664,7 +664,7 @@ export const PartyLedgerPrintMemo: React.FC<PartyLedgerPrintMemoProps> = ({
   categoryFilter = 'all',
   txnTypeFilter = 'all'
 }) => {
-  const { shopName } = useShopSettings();
+  const { shopName, settings } = useShopSettings();
   const [promo] = React.useState(() => {
     const defaults = {
       softwareCompany: 'Hasanah Tech Solution',
@@ -723,9 +723,11 @@ export const PartyLedgerPrintMemo: React.FC<PartyLedgerPrintMemoProps> = ({
 
         {/* Banner Texts */}
         <div className="relative z-10 space-y-0.5">
-          <p className="text-[11px] font-bold text-slate-800 tracking-wider">
-            মোবাইলঃ ০১৭১২-০১৪২২৫, ০১৭২৭-৯৫২৫১৩
-          </p>
+          {settings.phone && (
+            <p className="text-[11px] font-bold text-slate-800 tracking-wider">
+              মোবাইলঃ {settings.phone}
+            </p>
+          )}
           <h1 className="text-2xl sm:text-3xl font-black text-[#154284] tracking-tight leading-tight">
             {shopName}
           </h1>
@@ -743,11 +745,13 @@ export const PartyLedgerPrintMemo: React.FC<PartyLedgerPrintMemoProps> = ({
           <p className="text-[11px] font-bold text-[#1a56b0]">
             সততা ও সেবাই আমাদের মূল লক্ষ্য
           </p>
-          <div className="pt-0.5">
-            <span className="inline-block bg-[#1a365d] text-white px-5 py-0.5 rounded text-[10px] font-semibold">
-              চৌধুরী নিউ সুপার মার্কেট ...., বঙ্গবন্ধু সড়ক, গোপালগঞ্জ।
-            </span>
-          </div>
+          {settings.address && (
+            <div className="pt-0.5">
+              <span className="inline-block bg-[#1a365d] text-white px-5 py-0.5 rounded text-[10px] font-semibold">
+                {settings.address}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

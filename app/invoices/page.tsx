@@ -34,6 +34,7 @@ import { BengaliDatePicker } from '@/components/ui/BengaliDatePicker';
 import { printElement } from '@/lib/printUtils';
 import { TableRowActionMenu } from '@/components/TableRowActionMenu';
 import { useAuth } from '@/lib/authContext';
+import { useShopSettings } from '@/lib/shopSettingsContext';
 
 interface Product { 
   id: string; 
@@ -189,6 +190,7 @@ const parseInputNumber = (val: string | number | undefined | null): number => {
 
 function InvoicesContent() {
   const router = useRouter();
+  const { shopName } = useShopSettings();
   const { canEditInvoice, canDeleteInvoice, canCreateInvoice, canApproveInvoice, isViewer } = useAuth();
   const searchParams = useSearchParams();
   const convertOrderId = searchParams ? (searchParams.get('fromOrder') || searchParams.get('convert')) : null;
@@ -4218,7 +4220,7 @@ function InvoicesContent() {
             <div className="flex items-center justify-between">
               <div>
                 <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-2">
-                  <span>মেসার্স রড & সিমেন্ট স্টোর</span>
+                  <span>{shopName}</span>
                 </DialogTitle>
                 <p className="text-xs font-bold text-emerald-600 tracking-wider uppercase mt-0.5">ডেলিভারি চালান / গেট পাস (Delivery Chalan & Gate Pass)</p>
               </div>

@@ -25,6 +25,7 @@ import { format } from 'date-fns';
 import { bn } from 'date-fns/locale';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useShopSettings } from '@/lib/shopSettingsContext';
 
 interface CustomerDueItem {
   id: string;
@@ -60,6 +61,7 @@ const formatBnDate = (dateVal: Date | string | undefined | null, pattern: string
 };
 
 export default function CustomerDuesPage() {
+  const { shopName, settings: shopSettings } = useShopSettings();
   const [customers, setCustomers] = useState<CustomerDueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -284,7 +286,8 @@ export default function CustomerDuesPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `মেসার্স_দেলোয়ার_এন্ড_ব্রাদার্স_বাকী_তালিকা_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    const safeFileShopName = (shopName || 'বাকী_তালিকা').replace(/\s+/g, '_');
+    link.setAttribute('download', `${safeFileShopName}_বাকী_তালিকা_${format(new Date(), 'yyyy-MM-dd')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -716,10 +719,10 @@ export default function CustomerDuesPage() {
         {/* ========================================================= */}
         <div className="space-y-0">
           
-          {/* HEADER BOX: মেসার্স দেলোয়ার এন্ড ব্রাদার্স গোপালগঞ্জ শাখা */}
+          {/* HEADER BOX: দোকানের নাম ও ঠিকানা */}
           <div style={{ border: '1px solid #000000', padding: '5px 8px', textAlign: 'center', backgroundColor: '#ffffff' }}>
             <h1 style={{ fontSize: '15px', fontWeight: 900, margin: 0, padding: 0 }}>
-              মেসার্স দেলোয়ার এন্ড ব্রাদার্স গোপালগঞ্জ শাখা
+              {shopName}{shopSettings.address ? `, ${shopSettings.address}` : ''}
             </h1>
             <p style={{ fontSize: '12px', fontWeight: 700, margin: '2px 0 0 0' }}>
               বাকী তালিকা {formatBnDate(new Date(), 'dd MMMM - yyyy')}
@@ -824,7 +827,7 @@ export default function CustomerDuesPage() {
             {/* HEADER BOX: অগ্রীম জমা আছে */}
             <div style={{ border: '1px solid #000000', marginTop: '-1px', padding: '4px 8px', textAlign: 'center', backgroundColor: '#ffffff' }}>
               <h2 style={{ fontSize: '14px', fontWeight: 900, margin: 0, padding: 0 }}>
-                মেসার্স দেলোয়ার এন্ড ব্রাদার্স গোপালগঞ্জ শাখা
+                {shopName}{shopSettings.address ? `, ${shopSettings.address}` : ''}
               </h2>
               <p style={{ fontSize: '12px', fontWeight: 700, margin: '2px 0 0 0' }}>
                 অগ্রীম জমা আছে

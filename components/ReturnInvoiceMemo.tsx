@@ -52,19 +52,19 @@ export const ReturnInvoiceMemo: React.FC<ReturnInvoiceMemoProps> = ({
   shopInfo: propShopInfo,
   showPrintButton = true
 }) => {
-  const { shopName } = useShopSettings();
+  const { shopName, settings: globalSettings } = useShopSettings();
   const handleTriggerPrint = () => {
     printElement('printable-memo-wrapper');
   };
 
   const [shop] = useState(() => {
     const defaultShop = {
-      name: 'ব্রাদার্স এন্টারপ্রাইজ',
-      proprietor: 'প্রোঃ- মোঃ মিকাইল শেখ',
+      name: '',
+      proprietor: '',
       tagline: 'পাইকারী ও খুচরা বিক্রয় কেন্দ্র',
-      address: '৩১০, চৌধুরী নিউ সুপার মার্কেট, বঙ্গবন্ধু সড়ক, গোপালগঞ্জ',
-      phone: '০১৭১২-০১৪২২৫, ০১৭০১-২৯৫৩৩০',
-      email: 'delowarteraders@gmail.com',
+      address: '',
+      phone: '',
+      email: '',
       software: 'Hasanah Tech Solution',
       softwareCompany: 'Hasanah Tech Solution',
       softwarePhone: '01349345353',
@@ -199,9 +199,13 @@ export const ReturnInvoiceMemo: React.FC<ReturnInvoiceMemoProps> = ({
               <p className="text-xs font-bold text-slate-700">
                 {shop.tagline}
               </p>
-              <p className="text-xs font-bold text-slate-800 pt-0.5">
-                📍 {shop.address} • 📞 {shop.phone}
-              </p>
+              {(propShopInfo?.address || globalSettings.address || shop.address || propShopInfo?.phone || globalSettings.phone || shop.phone) && (
+                <p className="text-xs font-bold text-slate-800 pt-0.5">
+                  {(propShopInfo?.address || globalSettings.address || shop.address) ? `📍 ${propShopInfo?.address || globalSettings.address || shop.address}` : ''}
+                  {(propShopInfo?.address || globalSettings.address || shop.address) && (propShopInfo?.phone || globalSettings.phone || shop.phone) ? ' • ' : ''}
+                  {(propShopInfo?.phone || globalSettings.phone || shop.phone) ? `📞 ${propShopInfo?.phone || globalSettings.phone || shop.phone}` : ''}
+                </p>
+              )}
             </div>
           </div>
 
@@ -388,7 +392,7 @@ export const ReturnInvoiceMemo: React.FC<ReturnInvoiceMemoProps> = ({
             </div>
             <div>
               <div className="w-40 mx-auto border-t border-black pt-1 font-black">
-                পক্ষে- {shop.name}
+                পক্ষে- {propShopInfo?.name || shopName}
               </div>
             </div>
           </div>

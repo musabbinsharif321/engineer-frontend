@@ -21,6 +21,7 @@ import { bn } from 'date-fns/locale';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { DEVELOPER_LOGO_BASE64 } from '@/lib/developerLogo';
+import { useShopSettings } from '@/lib/shopSettingsContext';
 
 interface Product {
   id: string;
@@ -94,6 +95,7 @@ const formatGrandTotal = (value: number): string => {
 };
 
 export default function StockSheetReportPage() {
+  const { shopName, settings: shopSettings } = useShopSettings();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -354,7 +356,7 @@ export default function StockSheetReportPage() {
                 }}
               >
                 <thead>
-                  {/* Header Row 1: মেসার্স দেলোয়ার এন্ড ব্রাদার্স */}
+                  {/* Header Row 1: দোকানের নাম */}
                   <tr>
                     <th 
                       colSpan={4} 
@@ -367,7 +369,7 @@ export default function StockSheetReportPage() {
                         color: '#000000'
                       }}
                     >
-                      মেসার্স দেলোয়ার এন্ড ব্রাদার্স
+                      {shopName}{shopSettings.address ? ` — ${shopSettings.address}` : ''}
                     </th>
                   </tr>
                   {/* Header Row 2: স্টক */}
@@ -594,7 +596,7 @@ export default function StockSheetReportPage() {
           }}
         >
           <thead>
-            {/* Header Row 1: মেসার্স দেলোয়ার এন্ড ব্রাদার্স */}
+            {/* Header Row 1: দোকানের নাম */}
             <tr>
               <th 
                 colSpan={4} 
@@ -607,7 +609,7 @@ export default function StockSheetReportPage() {
                   color: '#000000'
                 }}
               >
-                মেসার্স দেলোয়ার এন্ড ব্রাদার্স
+                {shopName}{shopSettings.address ? ` — ${shopSettings.address}` : ''}
               </th>
             </tr>
             {/* Header Row 2: স্টক */}

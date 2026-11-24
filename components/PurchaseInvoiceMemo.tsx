@@ -82,20 +82,20 @@ export const PurchaseInvoiceMemo: React.FC<PurchaseInvoiceMemoProps> = ({
   type = 'purchase',
   showPrintButton = true
 }) => {
-  const { shopName } = useShopSettings();
+  const { shopName, settings: globalSettings } = useShopSettings();
   const handleTriggerPrint = () => {
     printElement('printable-memo-wrapper');
   };
 
   const [shop] = useState(() => {
     const defaultShop = {
-      name: 'ব্রাদার্স এন্টারপ্রাইজ',
-      proprietor: 'প্রোঃ- মোঃ মিকাইল শেখ',
+      name: '',
+      proprietor: '',
       tagline: 'পাইকারী ও খুচরা বিক্রয় কেন্দ্র',
-      address: '৩১০, চৌধুরী নিউ সুপার মার্কেট, বঙ্গবন্ধু সড়ক, গোপালগঞ্জ',
-      phone: '০১৭১২-০১৪২২৫, ০১৭০১-২৯৫৩৩০',
-      email: 'delowarteraders@gmail.com',
-      website: 'www.delowartraders.com',
+      address: '',
+      phone: '',
+      email: '',
+      website: '',
       software: 'Hasanah Tech Solution',
       softwareCompany: 'Hasanah Tech Solution',
       softwarePhone: '01349345353',
@@ -293,15 +293,19 @@ export const PurchaseInvoiceMemo: React.FC<PurchaseInvoiceMemoProps> = ({
               <p className="text-[11px] font-bold text-blue-700">
                 {shop.tagline}
               </p>
-              <p className="pt-0.5 text-[11px] leading-tight">
-                📍 {shop.address}
-              </p>
-              <p className="text-[11px]">
-                📞 {toBengaliDigits(shop.phone)}
-              </p>
-              {shop.email && (
+              {(propShopInfo?.address || globalSettings.address || shop.address) && (
+                <p className="pt-0.5 text-[11px] leading-tight">
+                  📍 {propShopInfo?.address || globalSettings.address || shop.address}
+                </p>
+              )}
+              {(propShopInfo?.phone || globalSettings.phone || shop.phone) && (
+                <p className="text-[11px]">
+                  📞 {toBengaliDigits(propShopInfo?.phone || globalSettings.phone || shop.phone)}
+                </p>
+              )}
+              {(propShopInfo?.email || globalSettings.email || shop.email) && (
                 <p className="text-[11px] text-slate-600 font-mono">
-                  ✉️ {shop.email}
+                  ✉️ {propShopInfo?.email || globalSettings.email || shop.email}
                 </p>
               )}
             </div>

@@ -78,6 +78,7 @@ import { format } from 'date-fns';
 import { bn } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { toBengaliDigits, isCementProduct, isRodProduct } from '@/lib/bengaliUtils';
+import { useShopSettings } from '@/lib/shopSettingsContext';
 
 interface OrderItem {
   name: string;
@@ -251,6 +252,7 @@ const getDate = (val: any): Date => {
 
 export default function Dashboard() {
   const isMounted = useIsMounted();
+  const { shopName, settings: shopSettings } = useShopSettings();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -529,7 +531,7 @@ export default function Dashboard() {
     ];
 
     const hasConst = products.some(p => isRodProduct(p) || isCementProduct(p));
-    const storeTitle = typeof window !== 'undefined' ? localStorage.getItem('store_name') || 'দৈনিক হিসাব ও ক্লোজিং রিপোর্ট' : 'দৈনিক হিসাব ও ক্লোজিং রিপোর্ট';
+    const storeTitle = shopName || 'দৈনিক হিসাব ও ক্লোজিং রিপোর্ট';
 
     const fullDailyReportText = `==== ${storeTitle} ====
 তারিখ - ${dateFormattedBn}
@@ -566,7 +568,7 @@ ${dayRodReturnKg > 0 ? `রড ফেরত = ${formatRodVal(dayRodReturnKg, tru
       formatQtyOrZero,
       formatRodVal
     };
-  }, [orders, purchases, allTransactions, products, totalCashBalance]);
+  }, [orders, purchases, allTransactions, products, totalCashBalance, shopName]);
 
   const handleCopyDailyReport = () => {
     if (dailyReportData?.fullDailyReportText) {
@@ -1110,11 +1112,13 @@ ${dayRodReturnKg > 0 ? `রড ফেরত = ${formatRodVal(dayRodReturnKg, tru
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="bg-amber-500 text-white font-black text-[10px] px-2.5 py-0.5 rounded-full shadow-xs">
-                    দেলোয়ার এন্ড ব্রাদার্স
+                    {shopName}
                   </span>
-                  <span className="bg-sky-50 text-sky-700 text-[10px] font-bold border border-sky-200 px-2 py-0.5 rounded-full">
-                    গোপালগঞ্জ শাখা
-                  </span>
+                  {shopSettings.address && (
+                    <span className="bg-sky-50 text-sky-700 text-[10px] font-bold border border-sky-200 px-2 py-0.5 rounded-full">
+                      {shopSettings.address}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 pt-0.5">
                   <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-1.5">
