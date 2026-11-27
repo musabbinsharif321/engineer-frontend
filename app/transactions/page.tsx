@@ -1262,6 +1262,7 @@ function TransactionsContent() {
       t.paymentId?.toLowerCase().includes(searchLower) ||
       t.invoiceNo?.toLowerCase().includes(searchLower) ||
       t.referenceNo?.toLowerCase().includes(searchLower) ||
+      t.notes?.toLowerCase().includes(searchLower) ||
       t.category?.toLowerCase().includes(searchLower);
 
     // 2. Active Tab / Type Filter (all, income/payment_in, expense/payment_out, contra/transfer)

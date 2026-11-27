@@ -109,6 +109,9 @@ export default function LoadingChargesPage() {
         const isPending = rawStatus === 'pending' || rawStatus === 'draft' || rawStatus === 'cancelled' || rawStatus === 'rejected' || rawStatus === 'অপেক্ষমান' || rawStatus === 'বাতিল';
         if (isPending) return;
 
+        // Skip if customer-payable (কাস্টমার প্রদেয়)
+        if (Boolean(meta.cementLoadingToCustomerLedger)) return;
+
         // Check if there is cement loading charge
         const cementRate = Number(meta.cementLaborRate || (t as any).cementLaborRate || 0);
         const cementCost = Number(meta.cementLaborCost || meta.cementLoadingCharge || (t as any).cementLaborCost || 0);
